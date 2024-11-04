@@ -1,0 +1,24 @@
+[general]
+name=CTBB Treballs Jardineria
+qgisMinimumVersion=3.0
+description=Incidencies de CTBB Treballs Jardineria
+version=0.1
+author=Gerald Kogler
+email=geraldo@servus.at
+about=Incidencies de CTBB Treballs Jardineria.
+tracker=https://github.com/psigcat/ctbb_treballs_jardineria/issues
+repository=https://github.com/psigcat/ctbb_treballs_jardineria
+hasProcessingProvider=no
+tags=CTBB
+homepage=https://github.com/psigcat/ctbb_treballs_jardineria
+category=Plugins
+icon=icon.png
+experimental=False
+deprecated=False
+server=False
+
+[app]
+database=gis_ctbb
+service=localhost_ctbb
+schema=incidencies
+table=incidencies
