@@ -19,6 +19,6 @@ server=False
 
 [app]
 database=gis_ctbb
-service=localhost_ctbb
+service=gis_ctbb
 schema=incidencies
 table=incidencies

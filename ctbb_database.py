@@ -4,6 +4,9 @@ import configparser
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery
 
 
+DEFAULT_DATE = '2000-01-01'
+
+
 class ctbb_database:
 
 	def __init__(self, plugin_dir):
@@ -114,6 +117,7 @@ class ctbb_database:
 		if not status:
 			self.last_error = query.lastError().text()
 			return None
+
 		# Get number of records
 		self.num_records = query.size()
 		if self.num_records == 0:
@@ -135,3 +139,60 @@ class ctbb_database:
 			rows.append(row)
 
 		return rows
+
+
+	# def get_table_fields(self):
+		# """ Get all fields from table incidencies """
+
+		# #try:
+		# print(f"Obtenint llistat de camps de la taula '{self.param['table']}'")
+		# sql = f"SELECT * FROM {self.param['table']} WHERE 1=0"
+		# self.cursor.execute(sql)
+		# self.fieldnames = [desc[0] for desc in self.cursor.description]
+		# # except (Exception, psycopg2.Error) as error:
+			# # print(f"Error al recuperar camps de la taula: {error}")
+			# # return False
+		# return True
+		
+		
+	def insert_record(self, data):
+		""" insert new incidencia """
+		
+		sql = None
+		list_fields = []
+		list_values = []
+		
+		# Iterate over field names and values from dictionary data
+		for field, value in data.items():
+			if value in ('(Seleccionar)', '--'):
+				continue
+			if value != '' and value != DEFAULT_DATE:
+				value = value.replace("'", "''").strip()
+				list_fields.append(field)
+				list_values.append(value)
+
+		str_fields = ", ".join(list_fields)
+		str_values = "', '".join(list_values)
+		sql = f"INSERT INTO {self.param['schema']}.{self.param['table']} ({str_fields}) "
+		values = f"VALUES ('{str_values}') RETURNING id;"
+		sql += values
+		
+		print("execute", sql)
+
+		try:
+			self.reset_info()
+			query = QSqlQuery(self.db)
+			status = query.exec(sql)
+			print(status)
+			if not status:
+				self.last_error = query.lastError().text()
+				return None
+			
+			return True
+
+		except (Exception) as error:
+			#self.iface.messageBar().pushMessage("Warning", f"Error actualitzant les dades a la taula de PostgreSQL: {error}", level=Qgis.Warning, duration=5)
+			print("ERROR", error)
+			if sql:
+				print(f"SQL: {sql}")
+			return False

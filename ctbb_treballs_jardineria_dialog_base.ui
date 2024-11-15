@@ -15,25 +15,9 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QTableView" name="tbl_main">
-     <property name="alternatingRowColors">
-      <bool>true</bool>
-     </property>
-     <property name="selectionMode">
-      <enum>QAbstractItemView::SingleSelection</enum>
-     </property>
-     <property name="selectionBehavior">
-      <enum>QAbstractItemView::SelectRows</enum>
-     </property>
-     <property name="sortingEnabled">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>5</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -88,7 +72,7 @@
         </widget>
        </item>
        <item row="4" column="1">
-        <widget class="QComboBox" name="tipus_incidencia"/>
+        <widget class="QComboBox" name="tipus"/>
        </item>
        <item row="5" column="0">
         <widget class="QLabel" name="label_5">
@@ -290,7 +274,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QComboBox" name="tipus_esporga"/>
+        <widget class="QComboBox" name="esporga_tipus"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_21">
@@ -317,7 +301,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QComboBox" name="tipus_plaga"/>
+        <widget class="QComboBox" name="plaga_tipus"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_29">
@@ -421,6 +405,29 @@
        </item>
       </layout>
      </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label_31">
+     <property name="text">
+      <string>Elements (abres, superficies) relacionats amb la incidencia:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QTableView" name="tbl_main">
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::SingleSelection</enum>
+     </property>
+     <property name="selectionBehavior">
+      <enum>QAbstractItemView::SelectRows</enum>
+     </property>
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
     </widget>
    </item>
    <item>

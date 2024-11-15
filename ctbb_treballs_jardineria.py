@@ -23,19 +23,22 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QComboBox
+from qgis.PyQt.QtWidgets import QAction, QLineEdit, QDateEdit, QComboBox, QPlainTextEdit
 from qgis.PyQt.QtSql import QSqlTableModel
-from qgis.core import Qgis, QgsVectorLayerCache
+from qgis.core import Qgis, QgsVectorLayerCache, QgsProviderRegistry
 from qgis.gui import QgsAttributeTableFilterModel, QgsAttributeTableModel
 
 # Import the code for the dialog
 from .ctbb_treballs_jardineria_dialog import ctbb_treballs_jardineriaDialog
+from .ctbb_treballs_jardineria_dialog_manage import ctbb_treballs_jardineriaDialogManage
 from .ctbb_database import ctbb_database
 import os.path
 
 
 ARBRES_TABLE_FIELDS = ['id', 'esp_nom', ' id_vu', 'ref_zona']
-DICT_TABLES = ['dic_ambit', 'dic_esporga_temporada', 'dic_tipus_esporga', 'dic_tipus_incidencia', 'dic_tipus_plaga']
+DICT_TABLES = ['dic_ambit', 'dic_tipus', 'dic_esporga_temporada', 'dic_esporga_tipus', 'dic_plaga_tipus']
+SELECTABLE_LAYERS = ['Arbres', 'Elements superficials', 'Elements lineals', 'Elements puntuals']
+FIELDNAMES = ['id', 'ambit', 'data_inici', 'data_fi', 'tipus', 'descripcio', 'persona_de', 'persona_a', 'document', 'preu_base', 'iva', 'quantitat', 'unitat', 'preu_unitari', 'data_factura', 'data_encarreg', 'data_execucio', 'observacions', 'esporga_tipus', 'esporga_temporada', 'plaga_superficie', 'plaga_tipus', 'plaga_aplicador', 'plaga_maquina', 'plaga_brou', 'plaga_nom_comercial', 'plaga_nom_registre', 'plaga_dosis', 'plaga_observacions']
 
 
 class ctbb_treballs_jardineria:
@@ -72,6 +75,7 @@ class ctbb_treballs_jardineria:
 		# Check if plugin was started the first time in current QGIS session
 		# Must be set in initGui() to survive plugin reloads
 		self.first_start = None
+
 
 	# noinspection PyMethodMayBeStatic
 	def tr(self, message):
@@ -163,6 +167,7 @@ class ctbb_treballs_jardineria:
 
 		return action
 
+
 	def initGui(self):
 		"""Create the menu entries and toolbar icons inside the QGIS GUI."""
 
@@ -171,6 +176,11 @@ class ctbb_treballs_jardineria:
 			icon_path,
 			text=self.tr(u'Obrir incidencia'),
 			callback=self.run,
+			parent=self.iface.mainWindow())
+		self.add_action(
+			icon_path,
+			text=self.tr(u'Gestionar incidencies'),
+			callback=self.manage,
 			parent=self.iface.mainWindow())
 
 		# will be set False in run()
@@ -186,16 +196,19 @@ class ctbb_treballs_jardineria:
 			self.iface.removeToolBarIcon(action)
 
 
-	def load_dicts(self):
-		""" Load dicts for GUI """
-
+	def connect_db(self):
 		# connect to database
+		
 		self.ctbb_db = ctbb_database(self.plugin_dir)
 		self.ctbb_db.read_config()
 		self.db = self.ctbb_db.open_database()
 
+
+	def load_dicts(self):
+		""" Load dicts for GUI """
+
 		for table in DICT_TABLES:
-			print(table)
+			#print(table)
 
 			schema = self.ctbb_db.param["schema"]
 			#table = "dic_ambit"
@@ -208,34 +221,13 @@ class ctbb_treballs_jardineria:
 		""" Fill combo boxes with rows loaded from dicts """
 
 		combo = table[4:]
+		print(combo)
 		widget = self.dlg.findChild(QComboBox, combo)
+		widget.clear()
+		
 		widget.addItem("(Seleccionar)")
 		for row in rows:
 			widget.addItem(row[1])
-
-
-	def show_selected_trees(self):
-		""" Show selected trees in table view """
-		
-		self.model = QSqlTableModel(db=self.db)
-		#schema = self.ctbb_db.param["schema"]
-		#table = self.ctbb_db.param["table"]
-		schema = "jardineria"
-		table = "arbres"
-		self.model.setTable(f"{schema}.{table}")
-		self.model.setSort(3, Qt.AscendingOrder)
-		self.dlg.tbl_main.setModel(self.model)
-		self.model.select()
-		
-		# hide columns
-		for i in range(self.model.columnCount()):
-			fieldname = self.model.headerData(i, Qt.Horizontal)
-			if fieldname not in ARBRES_TABLE_FIELDS:
-				self.dlg.tbl_main.setColumnHidden(i, True)
-		
-		# set column width
-		fieldindex = self.model.fieldIndex('esp_nom')
-		self.dlg.tbl_main.setColumnWidth(fieldindex, 300)
 
 
 	def show_selected_features(self, layer, features):
@@ -254,14 +246,121 @@ class ctbb_treballs_jardineria:
 		self.tableFilterModel.setFilterMode(QgsAttributeTableFilterModel.ShowSelected)
 		self.dlg.tbl_main.setModel(self.tableFilterModel)
 
+		# hide columns
+		# for i in range(self.model.columnCount()):
+			# fieldname = self.model.headerData(i, Qt.Horizontal)
+			# if fieldname not in ARBRES_TABLE_FIELDS:
+				# self.dlg.tbl_main.setColumnHidden(i, True)
+		
+		# set column width
+		# fieldindex = self.model.fieldIndex('esp_nom')
+		# self.dlg.tbl_main.setColumnWidth(fieldindex, 300)
+
+
+	def check_mandatory(self):
+		""" check mandatory fields """
+		
+		return True
+
+
+	def get_widget_data(self, fieldname):
+
+		widget = None
+		data = None
+		if not hasattr(self.dlg, fieldname):
+			return None, None
+		widget = getattr(self.dlg, fieldname)
+		if type(widget) == QLineEdit:
+			data = widget.text()
+		elif type(widget) == QPlainTextEdit:
+			data = widget.toPlainText()
+		elif type(widget) is QComboBox:
+			data = widget.currentText()
+		elif type(widget) is QDateEdit:
+			date = widget.date()
+			data = date.toString("yyyy-MM-dd")
+		else:
+			print(f"Tipus de component no suportat pel camp '{fieldname}': {type(widget)}")
+		return widget, data
+
+
+	def publish_record(self, layer, features):
+		""" Publish new register incidencia """
+	
+		# check if all mandatory fields are filled out
+		if not self.check_mandatory():
+			return False
+
+		# Create dictionary with field names and widget values
+		data = {}
+		#fieldnames = self.ctbb_db.get_table_fields()
+		#print(fieldnames)
+		for fieldname in FIELDNAMES:
+			widget, widget_data = self.get_widget_data(fieldname)
+			if widget is None:
+				print(f"El camp de la taula no té cap component associat: {fieldname}")
+				continue
+			data[fieldname] = widget_data
+
+		# add tablename and selected features to data
+		#print(layer.source())
+		uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
+		capa_seleccionada = uri_components['schema'] + "." + uri_components['table']
+		#print(capa_seleccionada)
+		data["capa_seleccionada"] = capa_seleccionada
+		
+		elements_seleccionats = []
+		for feature in features:
+			elements_seleccionats.append(feature.id())
+		data["elements_seleccionats"] = ",".join(map(str,elements_seleccionats))
+
+		print(data)		
+		self.ctbb_db.insert_record(data)
+		
+		self.iface.messageBar().pushMessage("Success", "Dades insertades correctament", level=Qgis.Success, duration=5)
+
+
+	def load_records(self):
+		""" Load table of incidencies records """
+
+		self.model = QSqlTableModel(db=self.db)
+		schema = self.ctbb_db.param["schema"]
+		table = self.ctbb_db.param["table"]
+		self.model.setTable(f"{schema}.{table}")
+		self.model.setSort(3, Qt.AscendingOrder)
+		self.dlg_manage.tbl_main.setModel(self.model)
+		self.model.select()
+		
+		# # hide columns
+		# for i in range(self.model.columnCount()):
+			# fieldname = self.model.headerData(i, Qt.Horizontal)
+			# if fieldname not in ARBRES_TABLE_FIELDS:
+				# self.dlg.tbl_main.setColumnHidden(i, True)
+		
+		# # set column width
+		# fieldindex = self.model.fieldIndex('esp_nom')
+		# self.dlg.tbl_main.setColumnWidth(fieldindex, 300)
+
+
+	def manage(self):
+		""" Manage existing incidencies """
+		
+		self.dlg_manage = ctbb_treballs_jardineriaDialogManage()
+		self.dlg_manage.show()
+		self.connect_db()
+		self.load_records()
+
 
 	def run(self):
 		"""Run method that performs all the real work"""
 		
 		# get selected features
 		layer = self.iface.activeLayer()
-		features = layer.selectedFeatures()
+		if not layer.name() in SELECTABLE_LAYERS:
+			self.iface.messageBar().pushMessage("Warning", "Capa seleccionada no permesa, has de seleccionar al menys un abre o superficie", level=Qgis.Warning, duration=5)
+			return
 		
+		features = layer.selectedFeatures()
 		if len(features) < 1:
 			self.iface.messageBar().pushMessage("Warning", "Has de seleccionar al menys un abre o superficie", level=Qgis.Warning, duration=5)
 			return
@@ -273,6 +372,7 @@ class ctbb_treballs_jardineria:
 			self.dlg = ctbb_treballs_jardineriaDialog()
 
 		# load dicts
+		self.connect_db()
 		self.load_dicts()
 
 		# show the dialog
@@ -283,4 +383,5 @@ class ctbb_treballs_jardineria:
 		result = self.dlg.exec_()
 		# See if OK was pressed
 		if result:
-			pass
+			# obrir incidencia
+			self.publish_record(layer, features)
