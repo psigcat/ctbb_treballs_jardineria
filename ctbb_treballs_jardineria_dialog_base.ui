@@ -11,9 +11,19 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>CTBB Treballs Jardineria</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+	<widget class="QgsMessageBar" name="messageBar">
+	 <property name="frameShape">
+	  <enum>QFrame::StyledPanel</enum>
+	 </property>
+	 <property name="frameShadow">
+	  <enum>QFrame::Raised</enum>
+	 </property>
+    </widget>
+   </item>
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
@@ -32,7 +42,11 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QLineEdit" name="id"/>
+        <widget class="QLineEdit" name="id">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label">
@@ -442,6 +456,14 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>QgsMessageBar</class>
+   <extends>QFrame</extends>
+   <header>qgis.gui</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
