@@ -15,13 +15,13 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-	<widget class="QgsMessageBar" name="messageBar">
-	 <property name="frameShape">
-	  <enum>QFrame::StyledPanel</enum>
-	 </property>
-	 <property name="frameShadow">
-	  <enum>QFrame::Raised</enum>
-	 </property>
+    <widget class="QgsMessageBar" name="messageBar">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
     </widget>
    </item>
    <item>
@@ -66,7 +66,21 @@
         </widget>
        </item>
        <item row="2" column="1">
-        <widget class="QDateEdit" name="data_inici"/>
+        <widget class="QDateEdit" name="data_inici">
+         <property name="dateTime">
+          <datetime>
+           <hour>23</hour>
+           <minute>59</minute>
+           <second>59</second>
+           <year>9999</year>
+           <month>12</month>
+           <day>31</day>
+          </datetime>
+         </property>
+         <property name="calendarPopup">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
        <item row="3" column="0">
         <widget class="QLabel" name="label_4">
@@ -76,7 +90,21 @@
         </widget>
        </item>
        <item row="3" column="1">
-        <widget class="QDateEdit" name="data_fi"/>
+        <widget class="QDateEdit" name="data_fi">
+         <property name="dateTime">
+          <datetime>
+           <hour>23</hour>
+           <minute>59</minute>
+           <second>59</second>
+           <year>9999</year>
+           <month>12</month>
+           <day>31</day>
+          </datetime>
+         </property>
+         <property name="calendarPopup">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
        <item row="4" column="0">
         <widget class="QLabel" name="label_6">
@@ -86,7 +114,7 @@
         </widget>
        </item>
        <item row="4" column="1">
-        <widget class="QComboBox" name="tipus"/>
+        <widget class="QComboBox" name="tipus_incidencia"/>
        </item>
        <item row="5" column="0">
         <widget class="QLabel" name="label_5">
@@ -234,7 +262,21 @@
         </widget>
        </item>
        <item row="5" column="1">
-        <widget class="QDateEdit" name="data_factura"/>
+        <widget class="QDateEdit" name="data_factura">
+         <property name="dateTime">
+          <datetime>
+           <hour>23</hour>
+           <minute>59</minute>
+           <second>59</second>
+           <year>9999</year>
+           <month>12</month>
+           <day>31</day>
+          </datetime>
+         </property>
+         <property name="calendarPopup">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
       </layout>
      </widget>
@@ -251,7 +293,21 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QDateEdit" name="data_encarreg"/>
+        <widget class="QDateEdit" name="data_encarreg">
+         <property name="dateTime">
+          <datetime>
+           <hour>23</hour>
+           <minute>59</minute>
+           <second>59</second>
+           <year>9999</year>
+           <month>12</month>
+           <day>31</day>
+          </datetime>
+         </property>
+         <property name="calendarPopup">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_17">
@@ -261,7 +317,21 @@
         </widget>
        </item>
        <item row="1" column="1">
-        <widget class="QDateEdit" name="data_execucio"/>
+        <widget class="QDateEdit" name="data_execucio">
+         <property name="dateTime">
+          <datetime>
+           <hour>23</hour>
+           <minute>59</minute>
+           <second>59</second>
+           <year>9999</year>
+           <month>12</month>
+           <day>31</day>
+          </datetime>
+         </property>
+         <property name="calendarPopup">
+          <bool>true</bool>
+         </property>
+        </widget>
        </item>
        <item row="2" column="0">
         <widget class="QLabel" name="label_19">
@@ -288,7 +358,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QComboBox" name="esporga_tipus"/>
+        <widget class="QComboBox" name="tipus_esporga"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_21">
@@ -315,7 +385,7 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QComboBox" name="plaga_tipus"/>
+        <widget class="QComboBox" name="tipus_plaga"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_29">
@@ -422,7 +492,7 @@
     </widget>
    </item>
    <item>
-    <widget class="QLabel" name="label_31">
+    <widget class="QLabel" name="label_elements">
      <property name="text">
       <string>Elements (abres, superficies) relacionats amb la incidencia:</string>
      </property>

@@ -21,7 +21,7 @@
  *																		 *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QDate
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QLineEdit, QDateEdit, QComboBox, QPlainTextEdit
 from qgis.PyQt.QtSql import QSqlTableModel
@@ -36,12 +36,14 @@ import os.path
 
 
 ARBRES_TABLE_FIELDS = ['id', 'esp_nom', ' id_vu', 'ref_zona']
-DICT_TABLES = ['dic_ambit', 'dic_tipus', 'dic_esporga_temporada', 'dic_esporga_tipus', 'dic_plaga_tipus']
+DICT_TABLES = ['dic_ambit', 'dic_tipus_incidencia', 'dic_esporga_temporada', 'dic_tipus_esporga', 'dic_tipus_plaga']
 SELECTABLE_LAYERS = ['Arbres', 'Elements superficials', 'Elements lineals', 'Elements puntuals']
-FIELDNAMES = ['id', 'ambit', 'data_inici', 'data_fi', 'tipus', 'descripcio', 'persona_de', 'persona_a', 'document', 'preu_base', 'iva', 'quantitat', 'unitat', 'preu_unitari', 'data_factura', 'data_encarreg', 'data_execucio', 'observacions', 'esporga_tipus', 'esporga_temporada', 'plaga_superficie', 'plaga_tipus', 'plaga_aplicador', 'plaga_maquina', 'plaga_brou', 'plaga_nom_comercial', 'plaga_nom_registre', 'plaga_dosis', 'plaga_observacions']
+FIELDNAMES = ['id', 'ambit', 'data_inici', 'data_fi', 'tipus_incidencia', 'descripcio', 'persona_de', 'persona_a', 'document', 'preu_base', 'iva', 'quantitat', 'unitat', 'preu_unitari', 'data_factura', 'data_encarreg', 'data_execucio', 'observacions', 'tipus_esporga', 'esporga_temporada', 'plaga_superficie', 'tipus_plaga', 'plaga_aplicador', 'plaga_maquina', 'plaga_brou', 'plaga_nom_comercial', 'plaga_nom_registre', 'plaga_dosis', 'plaga_observacions']
 FILTER_INCIDENCIES_VALUE = '2024'
 FILTER_INCIDENCIES_KEY = 'esporga_temporada'
 COMBO_SELECT_MSG = "(Seleccionar)"
+DEFAULT_LABEL_INCIDENCIES = "Incidencies: "
+DEFAULT_LABEL_ELEMENTS = "Elements (abres, superficies) relacionats amb la incidencia: "
 
 
 class ctbb_treballs_jardineria:
@@ -175,14 +177,15 @@ class ctbb_treballs_jardineria:
 	def initGui(self):
 		"""Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-		icon_path = os.path.join(self.plugin_dir, 'icon.png')
+		icon_create_path = os.path.join(self.plugin_dir, 'icons/incident-active.svg')
+		icon_manage_path = os.path.join(self.plugin_dir, 'icons/incident-maintenance.svg')
 		self.add_action(
-			icon_path,
+			icon_create_path,
 			text=self.tr(u'Obrir incidencia'),
 			callback=self.run,
 			parent=self.iface.mainWindow())
 		self.add_action(
-			icon_path,
+			icon_manage_path,
 			text=self.tr(u'Gestionar incidencies'),
 			callback=self.manage,
 			parent=self.iface.mainWindow())
@@ -239,8 +242,8 @@ class ctbb_treballs_jardineria:
 	def show_selected_features(self, layer, features):
 		""" Show selected trees or superficies in table view """
 		
-		for feature in features:
-			print(feature.attributes())
+		# for feature in features:
+			# print(feature.attributes())
 
 		#self.tableView = QgsAttributeTableView(self)
 		self.layerCache = QgsVectorLayerCache(layer, len(features))
@@ -250,6 +253,9 @@ class ctbb_treballs_jardineria:
 		self.tableFilterModel = QgsAttributeTableFilterModel(self.iface.mapCanvas(), self.modelTrees, parent=self.modelTrees)
 		self.tableFilterModel.setFilterMode(QgsAttributeTableFilterModel.ShowSelected)
 		self.dlg_create.tbl_main.setModel(self.tableFilterModel)
+		
+		# show count
+		self.dlg_create.label_elements.setText(DEFAULT_LABEL_ELEMENTS + "[" + str(self.tableFilterModel.rowCount()) + "]")
 
 		# hide columns
 		# for i in range(self.model.columnCount()):
@@ -345,6 +351,30 @@ class ctbb_treballs_jardineria:
 		self.iface.messageBar().pushMessage("Success", "Dades insertades correctament", level=Qgis.Success, duration=5)
 
 
+	def update_record(self):
+		""" Update existing register incidencia """
+
+		id = self.dlg_create.id.text()
+		print("update", id)
+		
+		# check if all mandatory fields are filled out
+		if not self.check_mandatory():
+			return False
+
+		# Create dictionary with field names and widget values
+		data = {}
+		for fieldname in FIELDNAMES:
+			widget, widget_data = self.get_widget_data(fieldname)
+			if widget is None:
+				print(f"El camp de la taula no té cap component associat: {fieldname}")
+				continue
+			data[fieldname] = widget_data
+		
+		self.ctbb_db.update_record(data, id)
+		
+		self.iface.messageBar().pushMessage("Success", "Dades actualitzades correctament", level=Qgis.Success, duration=5)
+
+
 	def load_records(self):
 		""" Load table of incidencies records """
 
@@ -353,10 +383,9 @@ class ctbb_treballs_jardineria:
 		table = self.ctbb_db.param["table"]
 		self.modelIncidencies.setTable(f"{schema}.{table}")
 		self.modelIncidencies.setSort(4, Qt.AscendingOrder)
-		self.modelIncidencies.setFilter(f"{FILTER_INCIDENCIES_VALUE} = '{FILTER_INCIDENCIES_VALUE}'")
-		self.modelIncidencies.select()
+		self.set_filter_records(f"{FILTER_INCIDENCIES_VALUE} = '{FILTER_INCIDENCIES_VALUE}'")
 		self.dlg_manage.tbl_main.setModel(self.modelIncidencies)
-		
+				
 		# # hide columns
 		# for i in range(self.modelIncidencies.columnCount()):
 			# fieldname = self.modelIncidencies.headerData(i, Qt.Horizontal)
@@ -383,9 +412,16 @@ class ctbb_treballs_jardineria:
 				filter += f"{field_name} = '{widget.currentText()}'"
 				i += 1
 
+		self.set_filter_records(filter)
+
+
+	def set_filter_records(self, filter):
+		""" apply filter to incidencia model """
+	
 		print("filter", filter)
 		self.modelIncidencies.setFilter(filter)
 		self.modelIncidencies.select()
+		self.dlg_manage.label_incidencies.setText(DEFAULT_LABEL_INCIDENCIES + "[" + str(self.modelIncidencies.rowCount()) + "]")
 
 
 	def get_selected_record(self):
@@ -427,30 +463,42 @@ class ctbb_treballs_jardineria:
 		
 		print("load record", incidencia)
 		id = incidencia.field("id").value()
+		self.dlg_create.id.setText(str(id))
+
 		capa_seleccionada = incidencia.field("capa_seleccionada").value()
 		elements_seleccionats = incidencia.field("elements_seleccionats").value()
-		elements_seleccionats = elements_seleccionats.split(",")
-		elements_seleccionats = list(map(int, elements_seleccionats))
-		print(id, capa_seleccionada, elements_seleccionats)
 		
-		self.dlg_create.id.setText(str(id))
+		if capa_seleccionada == None or elements_seleccionats == None:
+			self.dlg_create.messageBar.pushMessage("Warning", "INCIDENCIA ANTIGA! No hi ha arbres o superficies relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
 		
+		else:
+			elements_seleccionats = elements_seleccionats.split(",")
+			elements_seleccionats = list(map(int, elements_seleccionats))
+			print(id, capa_seleccionada, elements_seleccionats)
+
+			# set layer visible and activate
+			layer = QgsProject.instance().mapLayer(capa_seleccionada)
+			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			if node:
+				node.setItemVisibilityChecked(True)
+			self.iface.setActiveLayer(layer)
+
+			# Select related trees and superficies and zoom to features in layer
+			#features = layer.getFeatures(elements_seleccionats)
+			layer.select(elements_seleccionats)
+			self.iface.actionZoomToSelected().trigger()
+			selected_features = layer.selectedFeatures()
+			
+			if len(selected_features) < 1:
+				self.dlg_create.messageBar.pushMessage("Warning", "No hi ha arbres o superficies relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
+				return
+		
+			# load related trees and superficies
+			self.show_selected_features(layer, selected_features)
+
 		for fieldname in FIELDNAMES:
 			value = incidencia.field(fieldname).value()
 			self.set_widget_data(fieldname, value)
-
-		# load related trees and superficies
-		layer = QgsProject.instance().mapLayer(capa_seleccionada)
-		#features = layer.getFeatures(elements_seleccionats)
-		layer.select(elements_seleccionats)
-		self.iface.actionZoomToSelected().trigger()
-		selected_features = layer.selectedFeatures()
-		
-		if len(selected_features) < 1:
-			self.iface.messageBar().pushMessage("Warning", "No hi ha arbres o superficies relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
-			return
-		
-		self.show_selected_features(layer, selected_features)
 
 
 	def edit_record(self):
@@ -469,6 +517,8 @@ class ctbb_treballs_jardineria:
 
 		self.load_record(selected_record)
 		self.dlg_create.show()
+		
+		self.dlg_create.buttonBox.accepted.connect(self.update_record)
 			
 
 	def manage(self):
@@ -492,6 +542,7 @@ class ctbb_treballs_jardineria:
 				widget = self.dlg_manage.findChild(QComboBox, widget_name)
 				widget.currentIndexChanged.connect(self.filter_records)
 				
+		self.filter_records()
 		self.dlg_manage.show()
 
 
@@ -522,10 +573,19 @@ class ctbb_treballs_jardineria:
 		self.dlg_create.show()
 		self.show_selected_features(layer, features)
 		self.dlg_create.id.setEnabled(False)
+		today = QDate.currentDate()
+		self.dlg_create.data_inici.setDate(today)
 		
 		# Run the dialog event loop
 		result = self.dlg_create.exec_()
 		# See if OK was pressed
 		if result:
-			# obrir incidencia
 			self.publish_record(layer, features)
+
+			# obrir incidencia o editar existente
+			# id = self.dlg_create.id.text()
+			# print("id", id)
+			# if id == "":
+				# self.publish_record(layer, features)
+			# else:
+				# self.update_record(id)

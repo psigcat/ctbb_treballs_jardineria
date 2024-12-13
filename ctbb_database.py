@@ -4,7 +4,7 @@ import configparser
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery
 
 
-DEFAULT_DATE = '2000-01-01'
+DEFAULT_DATE = "9999-12-31"
 
 
 class ctbb_database:
@@ -15,7 +15,7 @@ class ctbb_database:
 		self.param = {}
 		self.db = None
 		self.obert = False
-		self.bd_open = False
+		self.db_open = False
 		self.last_error = None
 		self.last_msg = None
 		self.num_fields = None
@@ -57,7 +57,7 @@ class ctbb_database:
 	def open_database(self):
 		""" Open database on server """
 
-		if self.bd_open:
+		if self.db_open:
 			return self.db
 
 		if self.param["service"] == "":
@@ -71,7 +71,7 @@ class ctbb_database:
 			self.last_error = f"No s'ha pogut obrir la Base de Dades del servidor\n\n{self.db.lastError().text()}"
 			return None
 
-		self.bd_open = True
+		self.db_open = True
 		print("connected to database")
 		return self.db
 
@@ -79,10 +79,10 @@ class ctbb_database:
 	def close_database(self):
 		"""Close database on server """
 
-		if not self.bd_open:
+		if not self.db_open:
 			return True
 		self.db.close()
-		self.bd_open = False
+		self.db_open = False
 		return True
 
 
@@ -154,9 +154,9 @@ class ctbb_database:
 			# # return False
 		# return True
 		
-		
-	def insert_record(self, data):
-		""" insert new incidencia """
+	
+	def prepare_insert(self, data):
+		""" prepare sql query """
 		
 		sql = None
 		list_fields = []
@@ -173,12 +173,21 @@ class ctbb_database:
 
 		str_fields = ", ".join(list_fields)
 		str_values = "', '".join(list_values)
+		
+		return str_fields, str_values
+		
+		
+	def insert_record(self, data):
+		""" insert new incidencia """
+
+		str_fields, str_values = self.prepare_insert(data)
+
 		sql = f"INSERT INTO {self.param['schema']}.{self.param['table']} ({str_fields}) "
 		values = f"VALUES ('{str_values}') RETURNING id;"
 		sql += values
 		
 		print("execute", sql)
-
+		
 		try:
 			self.reset_info()
 			query = QSqlQuery(self.db)
@@ -196,3 +205,54 @@ class ctbb_database:
 			if sql:
 				print(f"SQL: {sql}")
 			return False
+
+
+	def prepare_udpate(self, data):
+		""" prepare sql query """
+		
+		sql = None
+		list_fields = []
+		list_values = []
+		
+		# Iterate over field names and values from dictionary data
+		for field, value in data.items():
+			if value in ('(Seleccionar)', '--'):
+				continue
+			if value != '' and value != DEFAULT_DATE:
+				value = value.replace("'", "''").strip()
+				list_fields.append(field)
+				list_values.append(value)
+
+		str_values = ""
+		i = 0
+		for field in list_fields:
+			if str_values != "":
+				str_values += ", "
+			str_values += field + "=" + list_values[i]
+			i+=1
+			
+		print(str_values)
+		
+		return str_values
+		
+
+	def update_record(self, data, id):
+		""" update existing incidencia """
+	
+		str_set = self.prepare_udpate(data)
+
+		sql = f"UPDATE {self.param['schema']}.{self.param['table']} "
+		sql += f"SET {str_set} "
+		sql += f"WHERE id={id};"
+		
+		print("execute", sql)
+		self.exec_sql(sql)
+
+				
+	def delete_record(self, id):
+		""" delete incidencia by id """
+
+		sql = f"DELETE FROM {self.param['schema']}.{self.param['table']} WHERE id={id}"
+		print("execute", sql)
+		
+		self.exec_sql(sql)
