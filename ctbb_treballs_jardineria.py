@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QLineEdit, QDateEdit, QComboBox, QPlainTextEdit
 from qgis.PyQt.QtSql import QSqlTableModel
-from qgis.core import Qgis, QgsVectorLayerCache, QgsProviderRegistry
+from qgis.core import Qgis, QgsVectorLayerCache, QgsProviderRegistry, QgsProject
 from qgis.gui import QgsAttributeTableFilterModel, QgsAttributeTableModel
 
 # Import the code for the dialog
@@ -296,9 +296,11 @@ class ctbb_treballs_jardineria:
 			return None, None
 		widget = getattr(self.dlg_create, fieldname)
 		if type(widget) == QLineEdit:
-			widget.setText(str(value))
+			if value != "NULL":
+				widget.setText(str(value))
 		elif type(widget) == QPlainTextEdit:
-			widget.setPlainText(str(value))
+			if value != "NULL":
+				widget.setPlainText(str(value))
 		elif type(widget) is QComboBox:
 			widget.setCurrentText(str(value))
 		#elif type(widget) is QDateEdit:
@@ -327,10 +329,11 @@ class ctbb_treballs_jardineria:
 
 		# add tablename and selected features to data
 		#print(layer.source())
-		uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
-		capa_seleccionada = uri_components['schema'] + "." + uri_components['table']
+		#uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
+		#capa_seleccionada = uri_components['schema'] + "." + uri_components['table']
 		#print(capa_seleccionada)
-		data["capa_seleccionada"] = capa_seleccionada
+		#data["capa_seleccionada"] = capa_seleccionada
+		data["capa_seleccionada"] = layer.id()
 		
 		elements_seleccionats = []
 		for feature in features:
@@ -387,32 +390,47 @@ class ctbb_treballs_jardineria:
 
 	def get_selected_record(self):
 		""" edit incidencia """
-		
-		records = self.dlg_manage.tbl_main.selectedIndexes()
-		if len(records) < 1:
+
+		selected_rows = self.dlg_manage.tbl_main.selectionModel().selectedRows()
+		if len(selected_rows) == 0:
 			self.dlg_manage.messageBar.pushMessage("Warning", "Has de seleccionar una incidencia", level=Qgis.Warning, duration=5)
 			return False
-			
-		return records[0]
+
+		selected_row = selected_rows[0]
+		selected_row_index = selected_row.row()		
+		index = self.modelIncidencies.index(selected_row_index, 0)
+		#data = self.modelIncidencies.data(index, Qt.DisplayRole)
+		#print(f"ID of selected row {selected_row_index}: {data}")
+		
+		record = index.model().record(selected_row_index)
+		return record
 
 
 	def delete_record(self):
 		""" edit incidencia """
 
 		selected_record = self.get_selected_record()
-		if selected_record:
-			pass
+		if not selected_record:
+			return False
+			
+		id = selected_record.field("id").value()
+		print("delete record", id)
+		self.ctbb_db.delete_record(id)
+		self.dlg_manage.messageBar.pushMessage("Success", "Incidencia marcada borrada", level=Qgis.Success, duration=5)
+		
+		# reload records
+		self.load_records()
 
 
-	def load_record(self, record):
+	def load_record(self, incidencia):
 		""" load record from table incidencia """
-
-		incidencia = record.model().record(0)
 		
 		print("load record", incidencia)
 		id = incidencia.field("id").value()
 		capa_seleccionada = incidencia.field("capa_seleccionada").value()
 		elements_seleccionats = incidencia.field("elements_seleccionats").value()
+		elements_seleccionats = elements_seleccionats.split(",")
+		elements_seleccionats = list(map(int, elements_seleccionats))
 		print(id, capa_seleccionada, elements_seleccionats)
 		
 		self.dlg_create.id.setText(str(id))
@@ -422,27 +440,35 @@ class ctbb_treballs_jardineria:
 			self.set_widget_data(fieldname, value)
 
 		# load related trees and superficies
-		layer = QgsProject.instance().mapLayersByName(capa_seleccionada)
-		features = layer.getFeatures(elements_seleccionats)
-		self.show_selected_features(layer, features)
-
+		layer = QgsProject.instance().mapLayer(capa_seleccionada)
+		#features = layer.getFeatures(elements_seleccionats)
+		layer.select(elements_seleccionats)
+		self.iface.actionZoomToSelected().trigger()
+		selected_features = layer.selectedFeatures()
+		
+		if len(selected_features) < 1:
+			self.iface.messageBar().pushMessage("Warning", "No hi ha arbres o superficies relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
+			return
+		
+		self.show_selected_features(layer, selected_features)
 
 
 	def edit_record(self):
 		""" edit incidencia """
 
-		selected_record = self.get_selected_record()
-		print(selected_record.model())
-		if selected_record:
-			if self.first_start_create == True:
-				self.first_start_create = False
-				self.dlg_create = ctbb_treballs_jardineriaDialog()
+		selected_record = self.get_selected_record()		
+		if not selected_record:
+			return False
 			
-				#self.connect_db()
-				self.load_dicts()
+		if self.first_start_create == True:
+			self.first_start_create = False
+			self.dlg_create = ctbb_treballs_jardineriaDialog()
+		
+			#self.connect_db()
+			self.load_dicts()
 
-			self.load_record(selected_record)
-			self.dlg_create.show()
+		self.load_record(selected_record)
+		self.dlg_create.show()
 			
 
 	def manage(self):
@@ -454,7 +480,7 @@ class ctbb_treballs_jardineria:
 		
 			self.dlg_manage.show()
 			self.dlg_manage.editBtn.clicked.connect(self.edit_record)
-			self.dlg_manage.editBtn.clicked.connect(self.delete_record)
+			self.dlg_manage.deleteBtn.clicked.connect(self.delete_record)
 			
 			self.connect_db()
 			self.load_dicts("filter")
