@@ -16,9 +16,3 @@ icon=icon.png
 experimental=False
 deprecated=False
 server=False
-
-[app]
-database=gis_ctbb
-service=gis_ctbb
-schema=incidencies
-table=incidencies

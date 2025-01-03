@@ -1,6 +1,3 @@
-import os
-import configparser
-
 from PyQt5.QtSql import QSqlDatabase, QSqlQuery
 
 
@@ -9,10 +6,10 @@ DEFAULT_DATE = "9999-12-31"
 
 class ctbb_database:
 
-	def __init__(self, plugin_dir):
+	def __init__(self, plugin_dir, param):
 
 		self.plugin_dir = plugin_dir
-		self.param = {}
+		self.param = param
 		self.db = None
 		self.obert = False
 		self.db_open = False
@@ -20,38 +17,6 @@ class ctbb_database:
 		self.last_msg = None
 		self.num_fields = None
 		self.num_records = None
-
-
-	def read_config(self):
-		""" read params from metadata.txt """
-		
-		self.param = {
-			"database": self.get_metadata_parameter("app", "database"),
-			"service": self.get_metadata_parameter("app", "service"),
-			"schema": self.get_metadata_parameter("app", "schema"),
-			"table": self.get_metadata_parameter("app", "table")
-		}
-		print(self.param)
-
-
-	def get_metadata_parameter(self, section="general", parameter="version", file="metadata.txt"):
-		""" Get parameter value from Metadata """
-
-		# Check if metadata file exists
-		metadata_file = os.path.join(self.plugin_dir, file)
-		if not os.path.exists(metadata_file):
-			show_warning(f"No s'ha trobat l'arxiu de metadades: {metadata_file}")
-			return None
-
-		value = None
-		try:
-			metadata = configparser.ConfigParser()
-			metadata.read(metadata_file)
-			value = metadata.get(section, parameter)
-		except Exception as e:
-			show_warning(e)
-		finally:
-			return value
 
 
 	def open_database(self):

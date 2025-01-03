@@ -1,0 +1,40 @@
+{
+	"db": {
+		"service": "gis_ctbb",
+		"database": "gis_ctbb",
+		"schema": "incidencies",
+		"table": "incidencies"
+	},
+	"layers": {
+		"arbres": {
+			"id": "id",
+			"alias": "Arbres",
+			"schema": "jardineria"
+		},
+		"elements_superficials": {
+			"id": "id",
+			"alias": "Elements superficials",
+			"schema": "jardineria"
+		},
+		"elements_lineals": {
+			"id": "id",
+			"alias": "Elements lineals",
+			"schema": "jardineria"
+		}, 
+		"elements_puntuals": {
+			"id": "id",
+			"alias": "Elements puntuals",
+			"schema": "jardineria"
+		}, 
+		"zones": {
+			"id": "refzona",
+			"alias": "Àmbit zones",
+			"schema": "jardineria"
+		}, 
+		"jocs_infantils_zones": {
+			"id": "refzona",
+			"alias": "Zones jocs infantls",
+			"schema": "jardineria"
+		}
+	}
+}

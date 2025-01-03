@@ -23,7 +23,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, Qt, QDate
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction, QLineEdit, QDateEdit, QComboBox, QPlainTextEdit
+from qgis.PyQt.QtWidgets import QAction, QLineEdit, QDateEdit, QComboBox, QPlainTextEdit, QWidget
 from qgis.PyQt.QtSql import QSqlTableModel
 from qgis.core import Qgis, QgsVectorLayerCache, QgsProviderRegistry, QgsProject
 from qgis.gui import QgsAttributeTableFilterModel, QgsAttributeTableModel
@@ -33,17 +33,20 @@ from .ctbb_treballs_jardineria_dialog import ctbb_treballs_jardineriaDialog
 from .ctbb_treballs_jardineria_dialog_manage import ctbb_treballs_jardineriaDialogManage
 from .ctbb_database import ctbb_database
 import os.path
+import json
 
 
 ARBRES_TABLE_FIELDS = ['id', 'esp_nom', ' id_vu', 'ref_zona']
 DICT_TABLES = ['dic_ambit', 'dic_tipus_incidencia', 'dic_esporga_temporada', 'dic_tipus_esporga', 'dic_tipus_plaga']
-SELECTABLE_LAYERS = ['Arbres', 'Elements superficials', 'Elements lineals', 'Elements puntuals']
+#SELECTABLE_LAYERS = ['Arbres', 'Elements superficials', 'Elements lineals', 'Elements puntuals', 'Zones', 'Zones jocs infantls']
+#SELECTABLE_SOURCES = ['arbres', 'elements_superficials', 'elements_lineals', 'elements_puntuals', 'zones', 'jocs_infantils_zones']
 FIELDNAMES = ['id', 'ambit', 'data_inici', 'data_fi', 'tipus_incidencia', 'descripcio', 'persona_de', 'persona_a', 'document', 'preu_base', 'iva', 'quantitat', 'unitat', 'preu_unitari', 'data_factura', 'data_encarreg', 'data_execucio', 'observacions', 'tipus_esporga', 'esporga_temporada', 'plaga_superficie', 'tipus_plaga', 'plaga_aplicador', 'plaga_maquina', 'plaga_brou', 'plaga_nom_comercial', 'plaga_nom_registre', 'plaga_dosis', 'plaga_observacions']
-FILTER_INCIDENCIES_VALUE = '2024'
-FILTER_INCIDENCIES_KEY = 'esporga_temporada'
+FILTER_INCIDENCIES_VALUE = '' #'2024'
+FILTER_INCIDENCIES_KEY = '' #'esporga_temporada'
 COMBO_SELECT_MSG = "(Seleccionar)"
 DEFAULT_LABEL_INCIDENCIES = "Incidencies: "
 DEFAULT_LABEL_ELEMENTS = "Elements (abres, superficies) relacionats amb la incidencia: "
+DEFAULT_DATE = "9999-12-31"
 
 
 class ctbb_treballs_jardineria:
@@ -81,6 +84,8 @@ class ctbb_treballs_jardineria:
 		# Must be set in initGui() to survive plugin reloads
 		self.first_start_create = None
 		self.first_start_manage = None
+		
+		self.param = {}
 
 
 	# noinspection PyMethodMayBeStatic
@@ -176,6 +181,8 @@ class ctbb_treballs_jardineria:
 
 	def initGui(self):
 		"""Create the menu entries and toolbar icons inside the QGIS GUI."""
+		
+		self.read_config()
 
 		icon_create_path = os.path.join(self.plugin_dir, 'icons/incident-active.svg')
 		icon_manage_path = os.path.join(self.plugin_dir, 'icons/incident-maintenance.svg')
@@ -204,11 +211,30 @@ class ctbb_treballs_jardineria:
 			self.iface.removeToolBarIcon(action)
 
 
+	def read_config(self):
+		""" read params from config.json """
+		
+		try:
+			with open(os.path.join(self.plugin_dir, "config.json")) as f:
+				config = json.load(f)
+			
+				self.param["db"] = {
+					"database": config["db"]["database"],
+					"service": config["db"]["service"],
+					"schema": config["db"]["schema"],
+					"table": config["db"]["table"]
+				}
+				self.param["layers"] = config["layers"]
+				print(self.param)
+
+		except Exception as e:
+			print(e)
+
+
 	def connect_db(self):
 		# connect to database
 		
-		self.ctbb_db = ctbb_database(self.plugin_dir)
-		self.ctbb_db.read_config()
+		self.ctbb_db = ctbb_database(self.plugin_dir, self.param["db"])
 		self.db = self.ctbb_db.open_database()
 
 
@@ -216,7 +242,7 @@ class ctbb_treballs_jardineria:
 		""" Load dicts for GUI """
 
 		for table in DICT_TABLES:
-			schema = self.ctbb_db.param["schema"]
+			schema = self.param["db"]["schema"]
 			sql = f"SELECT * FROM {schema}.{table}"
 			rows = self.ctbb_db.get_rows(sql)
 			self.fill_combo(table, rows, type)
@@ -315,6 +341,21 @@ class ctbb_treballs_jardineria:
 			print(f"Tipus de component no suportat pel camp '{fieldname}': {type(widget)}")
 
 
+	def reset_widgets(self):
+		""" reset widgets to enter new data """
+		
+		for widget in self.dlg_create.findChildren(QWidget):
+			if isinstance(widget, QLineEdit):
+				widget.setText("")
+			elif isinstance(widget, QPlainTextEdit):
+				widget.setPlainText("")
+			elif isinstance(widget, QDateEdit):
+				qdate = QDate.fromString(DEFAULT_DATE, "yyyy-MM-dd")
+				widget.setDate(qdate)
+			elif isinstance(widget, QComboBox):
+				widget.setCurrentIndex(0)
+
+
 	def publish_record(self, layer, features):
 		""" Publish new register incidencia """
 	
@@ -334,17 +375,17 @@ class ctbb_treballs_jardineria:
 			data[fieldname] = widget_data
 
 		# add tablename and selected features to data
-		#print(layer.source())
-		#uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
-		#capa_seleccionada = uri_components['schema'] + "." + uri_components['table']
-		#print(capa_seleccionada)
-		#data["capa_seleccionada"] = capa_seleccionada
-		data["capa_seleccionada"] = layer.id()
-		
+		uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
+		table = uri_components["table"]
 		elements_seleccionats = []
 		for feature in features:
-			elements_seleccionats.append(feature.id())
-		data["elements_seleccionats"] = ",".join(map(str,elements_seleccionats))
+			id = self.param["layers"][table]["id"]
+			print(id, feature.attribute(id))
+			elements_seleccionats.append(feature.attribute(id))
+		
+		for source in self.param["layers"].keys():
+			if source == table:
+				data[source] = ",".join(map(str,elements_seleccionats))
 
 		self.ctbb_db.insert_record(data)
 		
@@ -379,8 +420,8 @@ class ctbb_treballs_jardineria:
 		""" Load table of incidencies records """
 
 		self.modelIncidencies = QSqlTableModel(db=self.db)
-		schema = self.ctbb_db.param["schema"]
-		table = self.ctbb_db.param["table"]
+		schema = self.param["db"]["schema"]
+		table = self.param["db"]["table"]
 		self.modelIncidencies.setTable(f"{schema}.{table}")
 		self.modelIncidencies.setSort(4, Qt.AscendingOrder)
 		self.set_filter_records(f"{FILTER_INCIDENCIES_VALUE} = '{FILTER_INCIDENCIES_VALUE}'")
@@ -456,6 +497,7 @@ class ctbb_treballs_jardineria:
 		
 		# reload records
 		self.load_records()
+		self.filter_records()
 
 
 	def load_record(self, incidencia):
@@ -465,27 +507,40 @@ class ctbb_treballs_jardineria:
 		id = incidencia.field("id").value()
 		self.dlg_create.id.setText(str(id))
 
-		capa_seleccionada = incidencia.field("capa_seleccionada").value()
-		elements_seleccionats = incidencia.field("elements_seleccionats").value()
+		selected_table = None
+		for selected_source in self.param["layers"].keys():
+			selected_elements = incidencia.field(selected_source).value()
+			if selected_elements != None:
+				selected_table = selected_source
+				break
 		
-		if capa_seleccionada == None or elements_seleccionats == None:
-			self.dlg_create.messageBar.pushMessage("Warning", "INCIDENCIA ANTIGA! No hi ha arbres o superficies relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
+		if selected_table == None or selected_elements == None:
+			self.dlg_create.messageBar.pushMessage("Warning", "No hi ha arbres, superficies ni zones relacionats amb aquesta incidencia", level=Qgis.Warning, duration=5)
 		
 		else:
-			elements_seleccionats = elements_seleccionats.split(",")
-			elements_seleccionats = list(map(int, elements_seleccionats))
-			print(id, capa_seleccionada, elements_seleccionats)
+			#selected_elements = selected_elements.split(",")
+			#selected_elements_tuple = list(map(int, selected_elements))
+			print(id, selected_table, selected_elements)
 
 			# set layer visible and activate
-			layer = QgsProject.instance().mapLayer(capa_seleccionada)
-			node = QgsProject.instance().layerTreeRoot().findLayer(layer.id())
+			selected_layer_alias = self.param["layers"][selected_table]["alias"]
+			print("selected_layer_alias", selected_layer_alias)
+			node = QgsProject.instance().layerTreeRoot().findLayer(selected_layer_alias)
 			if node:
 				node.setItemVisibilityChecked(True)
-			self.iface.setActiveLayer(layer)
+			
+			layer = QgsProject.instance().mapLayersByName(selected_layer_alias)
+			if len(layer) > 0:
+				layer = layer[0]
+				self.iface.setActiveLayer(layer)
 
 			# Select related trees and superficies and zoom to features in layer
 			#features = layer.getFeatures(elements_seleccionats)
-			layer.select(elements_seleccionats)
+			id_column = self.param["layers"][selected_table]["id"]
+			expr = id_column + " IN (" + selected_elements + ")"
+			print("expr", expr)
+			layer.selectByExpression(expr)
+			
 			self.iface.actionZoomToSelected().trigger()
 			selected_features = layer.selectedFeatures()
 			
@@ -551,8 +606,10 @@ class ctbb_treballs_jardineria:
 		
 		# get selected features
 		layer = self.iface.activeLayer()
-		if not layer.name() in SELECTABLE_LAYERS:
-			self.iface.messageBar().pushMessage("Warning", "Capa seleccionada no permesa, has de seleccionar al menys un abre o superficie", level=Qgis.Warning, duration=5)
+		uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
+		#table_selected = uri_components['schema'] + "." + uri_components['table']
+		if not uri_components['table'] in self.param["layers"].keys():
+			self.iface.messageBar().pushMessage("Warning", "Capa seleccionada no permesa, has de seleccionar al menys un abre, superficie o zona", level=Qgis.Warning, duration=5)
 			return
 		
 		features = layer.selectedFeatures()
@@ -570,6 +627,7 @@ class ctbb_treballs_jardineria:
 			self.load_dicts()
 
 		# show the dialog
+		self.reset_widgets()
 		self.dlg_create.show()
 		self.show_selected_features(layer, features)
 		self.dlg_create.id.setEnabled(False)
